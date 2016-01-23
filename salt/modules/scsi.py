@@ -6,6 +6,7 @@ from __future__ import absolute_import
 
 import os.path
 import logging
+import salt.utils
 
 log = logging.getLogger(__name__)
 
@@ -13,8 +14,7 @@ __func_alias__ = {
     'ls_': 'ls'
 }
 
-
-def ls_():
+def ls_(get_size=True):
     '''
     List SCSI devices, with details
 
@@ -24,16 +24,37 @@ def ls_():
 
         salt '*' scsi.ls
     '''
-    cmd = 'lsscsi -dLsv'
+
+    if not salt.utils.which('lsscsi'):
+        __context__['retcode'] = 1
+        return 'lsscsi command not found'
+
+    if get_size:
+      cmd = 'lsscsi -dLsv'
+    else:
+      cmd = 'lsscsi -dLv'
+
     ret = {}
-    for line in __salt__['cmd.run'](cmd).splitlines():
+    res = __salt__['cmd.run_all'](cmd)
+    rc = res.get('retcode', -1)
+    if rc != 0:
+        __context__['retcode'] = rc
+        return res.get('stderr', '').split('\n')[0]
+    data = res.get('stdout', '')
+
+    for line in data.splitlines():
         if line.startswith('['):
+            size = None
+            major = None
+            minor = None
             mode = 'start'
             comps = line.strip().split()
             key = comps[0]
-            size = comps.pop()
+            if get_size:
+                size = comps.pop()
             majmin = comps.pop()
-            major, minor = majmin.replace('[', '').replace(']', '').split(':')
+            if majmin.startswith('['):
+                major, minor = majmin.replace('[', '').replace(']', '').split(':')
             device = comps.pop()
             model = ' '.join(comps[3:])
             ret[key] = {
