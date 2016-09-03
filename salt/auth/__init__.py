@@ -209,16 +209,59 @@ class Authorize(object):
     def auth_data(self):
         '''
         Gather and create the authorization data sets
+
+        We're looking at several constructs here.
+
+        Standard eauth: allow jsmith to auth via pam, and execute any command
+        on server web1
+        external_auth:
+          pam:
+            jsmith:
+              - web1:
+                - .*
+
+        Django eauth: Import the django library, dynamically load the Django
+        model called 'model'.  That model returns a data structure that
+        matches the above for standard eauth.  This is what determines
+        who can do what to which machines
+
+        django:
+          ^model:
+            <stuff returned from django>
+
+        Active Directory Extended:
+
+        Users in the AD group 'webadmins' can run any command on server1
+        Users in the AD group 'webadmins' can run test.ping and service.restart
+        on machines that have a computer object in the AD 'webservers' OU
+        Users in the AD group 'webadmins' can run commands defined in the
+        custom attribute (custom attribute not implemented yet, this is for
+        future use)
+          ldap:
+             webadmins%:  <all users in the AD 'webadmins' group>
+               - server1:
+                   - .*
+               - ldap(OU=webservers,dc=int,dc=bigcompany,dc=com):
+                  - test.ping
+                  - service.restart
+               - ldap(OU=Domain Controllers,dc=int,dc=bigcompany,dc=com):
+                 - allowed_fn_list_attribute^
         '''
         auth_data = self.opts['external_auth']
         merge_lists = self.opts['pillar_merge_lists']
 
+        log.info('in auth routine')
         if 'django' in auth_data and '^model' in auth_data['django']:
             auth_from_django = salt.auth.django.retrieve_auth_entries()
             auth_data = salt.utils.dictupdate.merge(auth_data,
                                                     auth_from_django,
                                                     strategy='list',
                                                     merge_lists=merge_lists)
+
+        if 'ldap' in auth_data and __opts__.get('auth.ldap.activedirectory', False):
+            log.info('in ldap auth')
+            auth_data['ldap'] = salt.auth.ldap.expand_ldap_entries(auth_data['ldap'])
+            log.info(auth_data['ldap'])
 
         #for auth_back in self.opts.get('external_auth_sources', []):
         #    fstr = '{0}.perms'.format(auth_back)
@@ -285,6 +328,7 @@ class Authorize(object):
                 form,
                 sub_auth[name] if name in sub_auth else sub_auth['*'],
                 load.get('fun', None),
+                load.get('arg', None),
                 load.get('tgt', None),
                 load.get('tgt_type', 'glob'))
         if not good:
@@ -384,6 +428,10 @@ class Resolver(object):
                 ret['kwarg'] = self.opts[kwarg]
             else:
                 ret[kwarg] = input('{0} [{1}]: '.format(kwarg, default))
+
+        # Use current user if empty
+        if 'username' in ret and not ret['username']:
+            ret['username'] = salt.utils.get_user()
 
         return ret
 
