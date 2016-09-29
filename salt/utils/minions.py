@@ -725,7 +725,8 @@ class CkMinions(object):
                             tgt,
                             tgt_type='glob',
                             groups=None,
-                            publish_validate=False):
+                            publish_validate=False,
+                            minions=None):
 
         # Here's my thinking
         # 1. Retrieve anticipated targeted minions
@@ -765,7 +766,10 @@ class CkMinions(object):
         elif tgt_type.lower() == 'compound':
             v_tgt_type = 'compound_pillar_exact'
         v_minions = set(self.check_minions(tgt, v_tgt_type))
-        minions = set(self.check_minions(tgt, tgt_type))
+        if minions:
+            minions = set(minions)
+        else:
+            minions = set(self.check_minions(tgt, tgt_type))
         mismatch = bool(minions.difference(v_minions))
         # If the non-exact match gets more minions than the exact match
         # then pillar globbing or PCRE is being used, and we have a
@@ -843,7 +847,7 @@ class CkMinions(object):
         authentication interfaces, like eauth, peer, peer_run, etc.
         '''
         if self.opts.get('auth.enable_expanded_auth_matching', False):
-            return self.auth_check_expanded(auth_list, funs, tgt, tgt_type, groups, publish_validate)
+            return self.auth_check_expanded(auth_list, funs, tgt, tgt_type, groups, publish_validate, minions)
         if publish_validate:
             v_tgt_type = tgt_type
             if tgt_type.lower() in ('pillar', 'pillar_pcre'):
