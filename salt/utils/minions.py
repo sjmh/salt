@@ -19,6 +19,7 @@ from salt.exceptions import CommandExecutionError
 
 # Import 3rd-party libs
 import salt.ext.six as six
+import salt.auth.ldap
 if six.PY3:
     import ipaddress
 else:
