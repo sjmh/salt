@@ -405,6 +405,8 @@ def expand_ldap_entries(entries, opts=None):
                 search_key = 'salt/snow/bu/{0}'.format(search_base)
                 try:
                     retrieved_minion_ids = get_minions(search_key, opts)
+                    acl = "L@{0}".format(",".join(retrieved_minion_ids))
+                    acl_tree.append({acl: permissions})
                     for minion_id in retrieved_minion_ids:
                         acl_tree.append({minion_id: permissions})
                     log.debug('Expanded acl_tree is: {0}'.format(acl_tree))
