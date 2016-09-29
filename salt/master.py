@@ -2218,7 +2218,7 @@ class ClearFuncs(object):
                     **clear_load
                 )
             )
-        log.debug('Published command details {0}'.format(load))
+        log.info('Published command details {0}'.format(load))
         return load
 
 
