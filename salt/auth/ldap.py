@@ -402,25 +402,26 @@ def expand_ldap_entries(entries, opts=None):
             if minion_or_ou.startswith('bu('):
                 search_base = minion_or_ou.lstrip('bu(').rstrip(')')
                 search_base = search_base.lower().replace(' ', '')
-                search_key = 'salt/snow/bu/{0}'.format(search_base)
-                try:
+                bu_list = search_base.split(',')
+                minions = []
+                for bu in bu_list:
+                    search_key = 'salt/snow/bu/{0}'.format(bu)
                     retrieved_minion_ids = get_minions(search_key, opts)
-                    acl = "L@{0}".format(",".join(retrieved_minion_ids))
-                    acl_tree.append({acl: permissions})
-                    for minion_id in retrieved_minion_ids:
-                        acl_tree.append({minion_id: permissions})
-                    log.debug('Expanded acl_tree is: {0}'.format(acl_tree))
-                except ldap.NO_SUCH_OBJECT:
-                    pass
+                    if retrieved_minion_ids:
+                        minions.extend(retrieved_minion_ids)
+                acl = "L@{0}".format(",".join(minions))
+                acl_tree.append({acl: permissions})
             else:
                 acl_tree.append({minion_or_ou: matchers})
-
     log.debug('expand_ldap_entries: {0}'.format(acl_tree))
     return acl_tree
 
 
 def get_minions(path, opts):
     e = EtcdClient(opts, profile='etcd_auth')
-    minions = e.tree(path)
-    log.debug('got keys: {0}'.format(minions.keys()))
-    return minions.keys()
+    bu_minions = e.tree(path)
+    minions = bu_minions.keys()
+    if minions:
+        return minions
+    else:
+        return None
